@@ -1,0 +1,54 @@
+!apt-get -qq install ffmpeg
+!pip -q install pydub scipy matplotlib numpy
+
+from google.colab import files
+uploaded = files.upload()
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.signal import convolve
+from pydub import AudioSegment
+
+filename = list(uploaded.keys())[0]
+
+audio = AudioSegment.from_mp3(filename)
+audio = audio.set_channels(1)
+
+samples = np.array(audio.get_array_of_samples()).astype(np.float32)
+samples = samples / np.max(np.abs(samples))
+
+impulses = [
+    np.array([1.0, 0.9, 0.7, 0.5]),
+    np.array([1.0, -1.0, 0.8, -0.6]),
+    np.array([0.2, 0.5, 1.0, 0.5, 0.2])
+]
+
+for i, h in enumerate(impulses):
+
+    convolved = convolve(samples, h, mode="same")
+
+    inverse = np.flip(h)
+    recovered = convolve(convolved, inverse, mode="same")
+
+    recovered = recovered / np.max(np.abs(recovered))
+
+    recovered_int16 = (recovered * 32767).astype(np.int16)
+
+    output = AudioSegment(
+        recovered_int16.tobytes(),
+        frame_rate=audio.frame_rate,
+        sample_width=2,
+        channels=1
+    )
+
+    output.export(f"Recovered_{i+1}.wav", format="wav")
+
+    plt.figure(figsize=(12,3))
+    plt.plot(recovered)
+    plt.title(f"Recovered Signal {i+1}")
+    plt.grid(True)
+    plt.show()
+
+files.download("Recovered_1.wav")
+files.download("Recovered_2.wav")
+files.download("Recovered_3.wav")
